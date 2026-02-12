@@ -1,2 +1,1 @@
-<img width="404" height="395" alt="image" src="https://github.com/user-attachments/assets/929b8727-a1d7-44bb-aa63-91eb030fe92e" />
-https://github.com/mak7im01/CoverDownloader/blob/main/CoverDownloader.jpg
+<img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/6de7c901-0a1b-426f-a76f-a09652ab9adc" />
