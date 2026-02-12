@@ -1,1 +1,1 @@
-https://github.com/mak7im01/CoverDownloader/blob/main/%D0%A1%D0%BD%D0%B8%D0%BC%D0%BE%D0%BA%20%D1%8D%D0%BA%D1%80%D0%B0%D0%BD%D0%B0_%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81_%D0%9C%D1%83%D0%B7%D1%8B%D0%BA%D0%B0_2026-02-12_23-22-07.jpg?raw=true
+<img width="404" height="395" alt="image" src="https://github.com/user-attachments/assets/929b8727-a1d7-44bb-aa63-91eb030fe92e" />
