@@ -1,0 +1,67 @@
+{
+    "sections": [
+        {
+            "title": "Основные настройки",
+            "items": [
+                {
+                    "id": "imageQuality",
+                    "name": "Качество изображения",
+                    "description": "Выберите качество скачиваемых обложек",
+                    "type": "selector",
+                    "selected": 3,
+                    "options": {
+                        "1": {
+                            "event": "lowQuality",
+                            "name": "Низкое (200x200)"
+                        },
+                        "2": {
+                            "event": "mediumQuality",
+                            "name": "Среднее (400x400)"
+                        },
+                        "3": {
+                            "event": "highQuality",
+                            "name": "Высокое (1000x1000)"
+                        },
+                        "4": {
+                            "event": "originalQuality",
+                            "name": "Оригинал (максимум)"
+                        }
+                    },
+                    "defaultParameter": 3
+                }
+            ]
+        },
+        {
+            "title": "Сохранение файлов",
+            "items": [
+                {
+                    "id": "fileNameFormat",
+                    "name": "Формат имени файла",
+                    "description": "Настройте формат имени сохраняемых файлов",
+                    "type": "text",
+                    "buttons": [
+                        {
+                            "id": "fileNamePattern",
+                            "name": "Шаблон имени",
+                            "text": "{artist} - {title}",
+                            "defaultParameter": "{artist} - {title}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "title": "Дополнительно",
+            "items": [
+                {
+                    "id": "showNotifications",
+                    "name": "Показывать уведомления",
+                    "description": "Отображать уведомления при скачивании обложек",
+                    "type": "button",
+                    "bool": true,
+                    "defaultParameter": true
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,17 @@
+{
+    "name": "CoverDownloader",
+    "author": "dobryjigrok",
+    "description": "Скачивание обложек треков",
+    "version": "1.0.0",
+    "css": "style.css",
+    "type": "script",
+    "script": "script.js",
+    "tags": [
+        "script",
+        "cover",
+        "download",
+        "utility"
+    ],
+
+    "fromPext": true
+}

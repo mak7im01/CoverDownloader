@@ -1,0 +1,43 @@
+/* Стили для кнопки скачивания обложки */
+.cover-download-button {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 9999;
+    background-color: rgba(26, 26, 26, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 64px;
+    height: 64px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: #1A1A1AE6;
+    font-size: 20px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Показываем кнопку при наведении на родительский контейнер */
+.cover-download-button-container:hover .cover-download-button {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cover-download-button:hover {
+    background-color: rgba(48, 47, 45, 0.9);
+    transform: scale(1.1);
+}
+
+.cover-download-button:active {
+    transform: scale(0.95);
+}
+
+.cover-download-button svg {
+    width: 32px;
+    height: 32px;
+    fill: white;
+}
