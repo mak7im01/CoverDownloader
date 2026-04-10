@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 295" width="750" height="295">
+  <!-- Фон -->
+  <rect width="750" height="295" fill="#1a1a1a"/>
+
+  <!-- Декоративные круги фона -->
+  <circle cx="660" cy="60"  r="110" fill="url(#accentGrad)" opacity="0.07"/>
+  <circle cx="710" cy="250" r="90"  fill="url(#accentGrad)" opacity="0.05"/>
+  <circle cx="40"  cy="260" r="80"  fill="url(#accentGrad)" opacity="0.04"/>
+
+  <!-- Градиентная полоса сверху -->
+  <rect width="750" height="4" fill="url(#accentGrad)"/>
+
+  <!-- Текст -->
+  <text x="270" y="105" font-family="'Segoe UI', Arial, sans-serif" font-size="44" font-weight="700" fill="#ffffff" letter-spacing="-1">Cover</text>
+  <text x="272" y="155" font-family="'Segoe UI', Arial, sans-serif" font-size="44" font-weight="700" fill="url(#accentGrad)" letter-spacing="-1">Downloader</text>
+
+  <defs>
+    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#6c3fc5"/>
+      <stop offset="100%" stop-color="#3a7bd5"/>
+    </linearGradient>
+  </defs>
+</svg>

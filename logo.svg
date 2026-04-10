@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 250" width="250" height="250">
+  <defs>
+    <linearGradient id="coverGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#6c3fc5"/>
+      <stop offset="100%" stop-color="#3a7bd5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Фон -->
+  <rect width="250" height="250" rx="40" fill="#1a1a1a"/>
+
+  <!-- Обложка альбома -->
+  <rect x="40" y="40" width="170" height="170" rx="16" fill="#2a2a2a"/>
+  <rect x="40" y="40" width="170" height="170" rx="16" fill="url(#coverGrad)"/>
+
+  <!-- Нотка на обложке -->
+  <g fill="#c0a0ff" opacity="0.2">
+    <ellipse cx="95" cy="148" rx="18" ry="13"/>
+    <ellipse cx="148" cy="138" rx="18" ry="13"/>
+    <rect x="111" y="75" width="8" height="73" rx="4"/>
+    <rect x="164" y="65" width="8" height="73" rx="4"/>
+    <rect x="111" y="75" width="61" height="8" rx="4"/>
+  </g>
+
+  <!-- Стрелка скачивания -->
+  <g fill="#c0a0ff">
+    <rect x="118" y="88" width="14" height="58" rx="7"/>
+    <polygon points="125,175 95,140 155,140"/>
+    <rect x="82" y="182" width="86" height="12" rx="6"/>
+  </g>
+</svg>
