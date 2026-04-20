@@ -41,3 +41,31 @@
     height: 32px;
     fill: white;
 }
+
+/* ===== Windows 2000 стиль кнопки (активируется при включённой теме Windows2000) ===== */
+.cover-download-button.win2k-style {
+    background-color: #C0C0C0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow:
+        inset -1px -1px 0px #0A0A0A,
+        inset  1px  1px 0px #FFFFFF,
+        inset -2px -2px 0px #808080,
+        inset  2px  2px 0px #DFDFDF !important;
+}
+
+.cover-download-button.win2k-style:hover {
+    background-color: #C0C0C0 !important;
+}
+
+.cover-download-button.win2k-style:active {
+    box-shadow:
+        inset -1px -1px 0px #FFFFFF,
+        inset  1px  1px 0px #0A0A0A,
+        inset -2px -2px 0px #DFDFDF,
+        inset  2px  2px 0px #808080 !important;
+}
+
+.cover-download-button.win2k-style svg {
+    fill: #000000 !important;
+}
