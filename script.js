@@ -1,4 +1,5 @@
 // Аддон для скачивания обложек треков в PulseSync
+// Кнопка на обложке в полноэкранном плеере + кнопка рядом с названием трека
 
 (function() {
     'use strict';
@@ -41,7 +42,7 @@
                         });
                     } else {
                         result[item.id] = {
-                            value: item.bool || item.input || item.selected || item.value || item.filePath,
+                            value: item.bool ?? item.input ?? item.selected ?? item.value ?? item.filePath,
                             default: item.defaultParameter
                         };
                     }
@@ -65,11 +66,9 @@
 
     // Изображение обложки
     function getCoverImage(modal) {
-        // Точный data-test-id из реального DOM
         const byTestId = modal.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]');
         if (byTestId) return byTestId;
 
-        // Fallback по домену
         return modal.querySelector(
             'img[src*="avatars.yandex.net"], img[src*="avatars.mds.yandex.net"], img[src*="music.yandex"]'
         ) || null;
@@ -82,7 +81,6 @@
             const m = link.getAttribute('href').match(/trackId=(\d+)/);
             if (m) return m[1];
         }
-        // Fallback: текст названия как псевдо-ID
         const titleEl = modal.querySelector('[data-test-id="TRACK_TITLE"]');
         return titleEl ? titleEl.textContent.trim() : null;
     }
@@ -95,7 +93,6 @@
         const title = titleEl ? titleEl.textContent.trim() : 'Unknown';
         const artist = artistEl ? artistEl.textContent.trim() : 'Unknown';
 
-        // Версия трека (SLOWED, Remix и т.п.)
         const versionEl = modal.querySelector('[data-test-id="TRACK_VERSION"]');
         const version = versionEl ? versionEl.textContent.trim() : '';
 
@@ -121,7 +118,64 @@
             : url.replace(/\/\d+x\d+/, `/${size}`);
     }
 
-    // ─── Кнопка ───────────────────────────────────────────────────────────────
+    // URL обложки из контейнера метаданных (для inline-кнопки)
+    function getCoverUrlFromMeta(metaContainer) {
+        // Приоритет: полноэкранный плеер
+        const modal = document.querySelector('div[data-test-id="FULLSCREEN_PLAYER_MODAL"]');
+        let img = null;
+
+        if (modal) {
+            img = modal.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
+                  modal.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
+        }
+
+        // Fallback: ищем обложку в playerbar рядом с метаданными
+        if (!img) {
+            const playerbar = metaContainer.closest('.PlayerBarDesktopWithBackgroundProgressBar_infoCard__i0cbW') ||
+                              metaContainer.closest('[data-test-id="PLAYERBAR_DESKTOP_COVER_CONTAINER"]')?.parentElement ||
+                              document.querySelector('[data-test-id="PLAYERBAR_DESKTOP_COVER_CONTAINER"]');
+            if (playerbar) {
+                img = playerbar.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
+                      playerbar.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
+            }
+        }
+
+        // Последний fallback: любая обложка на странице
+        if (!img) {
+            img = document.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
+        }
+
+        if (!img?.src) return null;
+
+        let url = img.src;
+        const quality = settings?.imageQuality?.value;
+        let size = '1000x1000';
+        if (quality === 1) size = '200x200';
+        else if (quality === 2) size = '400x400';
+        else if (quality === 3) size = '1000x1000';
+        else if (quality === 4) size = 'orig';
+
+        return size === 'orig'
+            ? url.replace(/\/\d+x\d+/, '/orig')
+            : url.replace(/\/\d+x\d+/, `/${size}`);
+    }
+
+    // Имя файла из контейнера метаданных
+    function getFilenameFromMeta(metaContainer) {
+        const titleEl   = metaContainer.querySelector('[data-test-id="TRACK_TITLE"] .Meta_title__GGBnH');
+        const artistEls = metaContainer.querySelectorAll('[data-test-id="SEPARATED_ARTIST_TITLE"] .Meta_artistCaption__JESZi');
+
+        const title  = titleEl?.textContent.trim() || 'Unknown';
+        const artist = artistEls.length
+            ? Array.from(artistEls).map(el => el.textContent.trim()).join(', ')
+            : 'Unknown';
+
+        const pattern = settings?.fileNameFormat?.fileNamePattern?.value || '{artist} - {title}';
+        const name = pattern.replace('{artist}', artist).replace('{title}', title);
+        return name.replace(/[/\\?%*:|"<>]/g, '-') + '.jpg';
+    }
+
+    // ─── Полноэкранная кнопка ─────────────────────────────────────────────────
 
     function createDownloadButton() {
         const button = document.createElement('button');
@@ -141,6 +195,11 @@
 
     function addDownloadButton() {
         if (isDownloading || isUpdating) return;
+        // Если полноэкранная кнопка отключена в настройках
+        if (settings?.fullscreenEnabled?.value === false) {
+            removeButton();
+            return;
+        }
         isUpdating = true;
 
         try {
@@ -153,7 +212,6 @@
 
             const trackId = getTrackId(modal);
 
-            // Кнопка уже на месте и трек не изменился
             if (trackId && trackId === lastTrackId &&
                 downloadButton && downloadButton.isConnected) {
                 return;
@@ -164,11 +222,9 @@
             const coverImg = getCoverImage(modal);
             if (!coverImg) return;
 
-            // Ждём загрузки изображения
             if (!coverImg.complete || coverImg.naturalHeight === 0) {
                 isUpdating = false;
                 coverImg.addEventListener('load', () => addDownloadButton(), { once: true });
-                // Страховка: если load не стрельнул (кеш, race condition) — повторяем через 300мс
                 setTimeout(() => {
                     if (!downloadButton || !downloadButton.isConnected) {
                         addDownloadButton();
@@ -180,7 +236,6 @@
             const container = getPosterContainer(modal) || coverImg.parentElement;
             if (!container) return;
 
-            // Контейнер не изменился и кнопка на месте
             if (container === currentContainer && downloadButton && downloadButton.isConnected) {
                 return;
             }
@@ -218,7 +273,102 @@
         lastTrackId = null;
     }
 
-    // ─── Скачивание ───────────────────────────────────────────────────────────
+    // ─── Inline-кнопка рядом с названием трека ────────────────────────────────
+
+    function createInlineIcon() {
+        const size    = Number(settings?.iconSize?.value)    || 18;
+        const opacity = (Number(settings?.iconOpacity?.value) || 70) / 100;
+
+        const btn = document.createElement('button');
+        btn.className = 'cd-inline-icon';
+        btn.title = 'Скачать обложку';
+        btn.innerHTML = `
+            <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/>
+            </svg>
+        `;
+        btn.style.cssText = `
+            background: transparent; border: none; cursor: pointer;
+            padding: 4px; display: inline-flex; align-items: center;
+            justify-content: center; opacity: ${opacity};
+            transition: opacity 0.2s, color 0.2s; margin-left: 8px;
+            vertical-align: middle;
+            color: var(--ym-controls-color-primary-text-enabled_variant, #ffffff);
+        `;
+
+        btn.addEventListener('mouseenter', () => { btn.style.opacity = '1'; });
+        btn.addEventListener('mouseleave', () => { btn.style.opacity = String(opacity); });
+
+        return btn;
+    }
+
+    function addInlineIconToMeta(metaContainer) {
+        const titleContainer = metaContainer.querySelector('.Meta_titleContainer__gDuXr');
+        if (!titleContainer) return;
+
+        const copyIcon = titleContainer.querySelector('.copy-track-icon');
+        const existing = metaContainer.querySelector('.cd-inline-icon');
+
+        // Если иконка уже есть — проверяем не появился ли copyIcon после неё
+        if (existing) {
+            if (copyIcon) {
+                // copyIcon есть — проверяем правильность позиции
+                const position = Number(settings?.iconPosition?.value ?? 1);
+                const nodes = Array.from(titleContainer.childNodes);
+                const existingIdx = nodes.indexOf(existing);
+                const copyIdx = nodes.indexOf(copyIcon);
+                const positionCorrect = position === 2
+                    ? existingIdx < copyIdx   // слева: наша иконка должна быть перед copy
+                    : existingIdx > copyIdx;  // справа: наша иконка должна быть после copy
+                if (positionCorrect) return;
+                // Позиция неправильная — удаляем и пересоздаём
+                existing.remove();
+            } else {
+                return;
+            }
+        }
+
+        const btn = createInlineIcon();
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (btn.disabled) return;
+            btn.disabled = true;
+            btn.style.opacity = '0.3';
+
+            try {
+                await downloadCoverFromMeta(metaContainer);
+            } finally {
+                btn.disabled = false;
+                const opacity = (Number(settings?.iconOpacity?.value) || 70) / 100;
+                btn.style.opacity = String(opacity);
+            }
+        });
+
+        if (copyIcon) {
+            const position = Number(settings?.iconPosition?.value ?? 1);
+            if (position === 2) {
+                copyIcon.insertAdjacentElement('beforebegin', btn);
+            } else {
+                copyIcon.insertAdjacentElement('afterend', btn);
+            }
+        } else {
+            titleContainer.appendChild(btn);
+        }
+    }
+
+    function processAllMeta() {
+        if (settings?.inlineEnabled?.value === false) return;
+        document.querySelectorAll('.Meta_root__R8n1h').forEach(addInlineIconToMeta);
+    }
+
+    function refreshInlineIcons() {
+        document.querySelectorAll('.cd-inline-icon').forEach(el => el.remove());
+        processAllMeta();
+    }
+
+    // ─── Скачивание (полноэкранный режим) ─────────────────────────────────────
 
     async function downloadCover() {
         if (!currentCoverUrl || isDownloading) return;
@@ -241,48 +391,86 @@
                 filename = filename.replace(/[/\\?%*:|"<>]/g, '-');
             }
 
-            const response = await fetch(currentCoverUrl);
-            const blob = await response.blob();
-
-            if (window.showSaveFilePicker) {
-                try {
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: filename,
-                        types: [{ description: 'Изображения', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } }]
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    if (settings?.showNotifications?.value) showNotification('Обложка сохранена', filename);
-                } catch (err) {
-                    if (err.name !== 'AbortError') console.error('[CoverDownloader] сохранение:', err);
-                }
-            } else {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                if (settings?.showNotifications?.value) showNotification('Обложка скачана', filename);
-            }
+            await saveFile(currentCoverUrl, filename);
         } catch (error) {
             console.error('[CoverDownloader] downloadCover:', error);
+            showToast('Ошибка скачивания', false);
         } finally {
             isDownloading = false;
         }
     }
 
-    function showNotification(title, message) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(title, { body: message, icon: currentCoverUrl });
+    // ─── Скачивание (inline) ──────────────────────────────────────────────────
+
+    async function downloadCoverFromMeta(metaContainer) {
+        const coverUrl = getCoverUrlFromMeta(metaContainer);
+        if (!coverUrl) {
+            showToast('Обложка не найдена', false);
+            return;
+        }
+
+        try {
+            const filename = getFilenameFromMeta(metaContainer);
+            await saveFile(coverUrl, filename);
+        } catch (err) {
+            console.error('[CoverDownloader] downloadCoverFromMeta:', err);
+            showToast('Ошибка скачивания', false);
         }
     }
 
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    // ─── Общая логика сохранения файла ───────────────────────────────────────
+
+    async function saveFile(url, filename) {
+        if (window.showSaveFilePicker) {
+            // Показываем диалог СРАЗУ в контексте user gesture, до fetch
+            let writable;
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{ description: 'Изображения', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } }]
+                });
+                writable = await handle.createWritable();
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                throw err;
+            }
+            // Теперь качаем и пишем
+            const blob = await fetch(url).then(r => r.blob());
+            await writable.write(blob);
+            await writable.close();
+        } else {
+            const blob = await fetch(url).then(r => r.blob());
+            const objUrl = URL.createObjectURL(blob);
+            const a = Object.assign(document.createElement('a'), { href: objUrl, download: filename });
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(objUrl);
+            a.remove();
+        }
+
+        if (settings?.showNotifications?.value !== false) {
+            showToast('Обложка сохранена: ' + filename, true);
+        }
+    }
+
+    // ─── Toast-уведомление ────────────────────────────────────────────────────
+
+    function showToast(message, success = true) {
+        const el = document.createElement('div');
+        el.textContent = message;
+        el.style.cssText = `
+            position: fixed; bottom: 20px; right: 20px;
+            background: ${success ? '#4CAF50' : '#f44336'};
+            color: white; padding: 12px 24px; border-radius: 4px;
+            z-index: 10000; font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            animation: cd-slideIn 0.3s ease-out;
+        `;
+        document.body.appendChild(el);
+        setTimeout(() => {
+            el.style.animation = 'cd-slideOut 0.3s ease-out';
+            setTimeout(() => el.remove(), 300);
+        }, 2000);
     }
 
     // ─── Windows 2000 тема ────────────────────────────────────────────────────
@@ -297,19 +485,33 @@
         downloadButton.classList.toggle('win2k-style', active);
     }
 
+    // ─── Стили анимации ───────────────────────────────────────────────────────
+
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes cd-slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to   { transform: translateX(0);     opacity: 1; }
+        }
+        @keyframes cd-slideOut {
+            from { transform: translateX(0);     opacity: 1; }
+            to   { transform: translateX(400px); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+
     // ─── MutationObserver ─────────────────────────────────────────────────────
 
     let updateTimeout = null;
 
-    // Быстрая проверка: появился ли постер или изображение обложки
     function isRelevantMutation(mutations) {
         for (const mutation of mutations) {
-            // Игнорируем изменения внутри самой кнопки
             let node = mutation.target;
             let inside = false;
             while (node && node !== document.body) {
                 if (node.classList?.contains('cover-download-button') ||
-                    node.classList?.contains('cover-download-button-container')) {
+                    node.classList?.contains('cover-download-button-container') ||
+                    node.classList?.contains('cd-inline-icon')) {
                     inside = true;
                     break;
                 }
@@ -320,8 +522,8 @@
             for (const n of [...mutation.addedNodes, ...mutation.removedNodes]) {
                 if (n.nodeType !== 1) continue;
                 if (n.classList?.contains('cover-download-button')) continue;
+                if (n.classList?.contains('cd-inline-icon')) continue;
 
-                // Высокий приоритет: появился постер или модальное окно плеера
                 const testId = n.dataset?.testId || '';
                 if (
                     testId === 'FULLSCREEN_PLAYER_POSTER_CONTENT' ||
@@ -339,6 +541,10 @@
         return null;
     }
 
+    // Observer для inline-иконок — запускается только после загрузки настроек
+    const inlineObserver = new MutationObserver(() => processAllMeta());
+
+    // Observer для полноэкранной кнопки — с фильтрацией
     const observer = new MutationObserver((mutations) => {
         if (isDownloading || isUpdating) return;
 
@@ -346,9 +552,7 @@
         if (!priority) return;
 
         clearTimeout(updateTimeout);
-
         if (priority === 'immediate') {
-            // Постер появился — добавляем кнопку без задержки
             updateTimeout = setTimeout(addDownloadButton, 0);
         } else {
             updateTimeout = setTimeout(addDownloadButton, 100);
@@ -359,13 +563,58 @@
 
     // ─── Периодическая проверка ───────────────────────────────────────────────
 
+    let lastIconPosition = null;
+    let lastIconSize = null;
+    let lastIconOpacity = null;
+    let lastInlineEnabled = null;
+    let lastFullscreenEnabled = null;
+
     setInterval(async () => {
-        settings = await getSettings("CoverDownloader");
+        const newSettings = await getSettings("CoverDownloader");
+        if (newSettings) {
+            const newPosition         = Number(newSettings?.iconPosition?.value ?? 1);
+            const newSize             = Number(newSettings?.iconSize?.value     ?? 18);
+            const newOpacity          = Number(newSettings?.iconOpacity?.value  ?? 70);
+            const newInlineEnabled    = newSettings?.inlineEnabled?.value !== false;
+            const newFullscreenEnabled = newSettings?.fullscreenEnabled?.value !== false;
+
+            const visualChanged =
+                (lastIconPosition      !== null && lastIconPosition      !== newPosition)         ||
+                (lastIconSize          !== null && lastIconSize          !== newSize)              ||
+                (lastIconOpacity       !== null && lastIconOpacity       !== newOpacity)           ||
+                (lastInlineEnabled     !== null && lastInlineEnabled     !== newInlineEnabled)     ||
+                lastIconPosition === null;
+
+            // Если полноэкранная кнопка была включена/выключена
+            if (lastFullscreenEnabled !== null && lastFullscreenEnabled !== newFullscreenEnabled) {
+                if (!newFullscreenEnabled) {
+                    removeButton();
+                } else {
+                    lastTrackId = null; // форсируем пересоздание
+                }
+            }
+
+            lastIconPosition       = newPosition;
+            lastIconSize           = newSize;
+            lastIconOpacity        = newOpacity;
+            lastInlineEnabled      = newInlineEnabled;
+            lastFullscreenEnabled  = newFullscreenEnabled;
+
+            settings = newSettings;
+
+            if (visualChanged) {
+                document.querySelectorAll('.cd-inline-icon').forEach(el => el.remove());
+                processAllMeta();
+            }
+        }
         applyWin2kStyle(isWindows2000Active());
+
+        // Страховка: добавляем иконки если их нет
+        processAllMeta();
 
         const modal = getModal();
         if (modal && (!downloadButton || !downloadButton.isConnected)) {
-            lastTrackId = null; // форсируем пересоздание
+            lastTrackId = null;
             addDownloadButton();
         }
 
@@ -378,6 +627,13 @@
             }
         }
     }, 1000);
+
+    // Первичная инициализация — сначала загружаем настройки, потом запускаем observer и создаём иконки
+    getSettings("CoverDownloader").then(s => {
+        if (s) settings = s;
+        inlineObserver.observe(document.body, { childList: true, subtree: true });
+        processAllMeta();
+    });
 
     console.log('[CoverDownloader] аддон загружен');
 })();

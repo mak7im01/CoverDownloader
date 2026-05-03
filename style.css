@@ -1,4 +1,4 @@
-/* Стили для кнопки скачивания обложки */
+/* Стили для кнопки скачивания обложки (полноэкранный плеер + inline рядом с треком) */
 .cover-download-button {
     position: absolute;
     top: 16px;
@@ -68,4 +68,23 @@
 
 .cover-download-button.win2k-style svg {
     fill: #000000 !important;
+}
+
+/* ===== Inline-кнопка рядом с названием трека ===== */
+.cd-inline-icon {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s, color 0.2s;
+    margin-left: 8px;
+    vertical-align: middle;
+    color: var(--ym-controls-color-primary-text-enabled_variant, #ffffff);
+}
+
+.cd-inline-icon:hover {
+    opacity: 1 !important;
 }

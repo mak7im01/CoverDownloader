@@ -4,6 +4,14 @@
             "title": "Основные настройки",
             "items": [
                 {
+                    "id": "fullscreenEnabled",
+                    "name": "Включить кнопку на обложке",
+                    "description": "Отображать кнопку скачивания на обложке в полноэкранном плеере",
+                    "type": "button",
+                    "bool": true,
+                    "defaultParameter": true
+                },
+                {
                     "id": "imageQuality",
                     "name": "Качество изображения",
                     "description": "Выберите качество скачиваемых обложек",
@@ -28,6 +36,14 @@
                         }
                     },
                     "defaultParameter": 3
+                },
+                {
+                    "id": "showNotifications",
+                    "name": "Показывать уведомления",
+                    "description": "Отображать уведомления при скачивании обложек",
+                    "type": "button",
+                    "bool": false,
+                    "defaultParameter": true
                 }
             ]
         },
@@ -37,7 +53,7 @@
                 {
                     "id": "fileNameFormat",
                     "name": "Формат имени файла",
-                    "description": "Настройте формат имени сохраняемых файлов",
+                    "description": "Настройте формат имени сохраняемых файлов. Доступные переменные: {artist}, {title}",
                     "type": "text",
                     "buttons": [
                         {
@@ -51,15 +67,55 @@
             ]
         },
         {
-            "title": "Дополнительно",
+            "title": "Внешний вид (inline-кнопка)",
             "items": [
                 {
-                    "id": "showNotifications",
-                    "name": "Показывать уведомления",
-                    "description": "Отображать уведомления при скачивании обложек",
+                    "id": "inlineEnabled",
+                    "name": "Включить inline-кнопку",
+                    "description": "Отображать кнопку скачивания рядом с названием трека",
                     "type": "button",
                     "bool": true,
                     "defaultParameter": true
+                },
+                {
+                    "id": "iconPosition",
+                    "name": "Позиция иконки (при активном CopyTrackName)",
+                    "description": "С какой стороны от иконки копирования отображать кнопку скачивания",
+                    "type": "selector",
+                    "selected": 1,
+                    "options": {
+                        "1": {
+                            "event": "positionAfter",
+                            "name": "Справа от иконки копирования"
+                        },
+                        "2": {
+                            "event": "positionBefore",
+                            "name": "Слева от иконки копирования"
+                        }
+                    },
+                    "defaultParameter": 1
+                },
+                {
+                    "id": "iconSize",
+                    "name": "Размер иконки",
+                    "description": "Размер иконки скачивания рядом с названием трека (в пикселях)",
+                    "type": "slider",
+                    "min": 12,
+                    "max": 24,
+                    "step": 2,
+                    "value": 18,
+                    "defaultParameter": 18
+                },
+                {
+                    "id": "iconOpacity",
+                    "name": "Прозрачность иконки",
+                    "description": "Прозрачность иконки в неактивном состоянии (5–100%)",
+                    "type": "slider",
+                    "min": 5,
+                    "max": 100,
+                    "step": 5,
+                    "value": 70,
+                    "defaultParameter": 70
                 }
             ]
         }
