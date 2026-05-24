@@ -14,42 +14,93 @@
 
     // ─── Настройки ────────────────────────────────────────────────────────────
 
-    async function getSettings(name) {
-        try {
-            const response = await fetch(`http://localhost:2007/get_handle?name=${name}`);
-            if (!response.ok) throw new Error(`Ошибка сети: ${response.status}`);
-            const { data } = await response.json();
-            if (!data?.sections) return null;
-            return transformJSON(data);
-        } catch (error) {
-            console.error('[CoverDownloader] getSettings:', error);
-            return null;
-        }
+    // Новое API PulseSync: window.pulsesyncApi.getSettings(name)
+    // Возвращает store с .getCurrent() и .onChange(cb)
+    // get_handle — discontinued
+
+    let settingsStore = null;
+
+    function initSettings(name) {
+        const store = window.pulsesyncApi?.getSettings(name) ?? {
+            getCurrent: () => ({}),
+            onChange: () => () => {},
+        };
+
+        settingsStore = store;
+
+        // Применяем текущие настройки сразу
+        const raw = store.getCurrent();
+        settings = transformSettings(raw);
+
+        // Подписываемся на изменения — реагируем мгновенно без поллинга
+        store.onChange(nextRaw => {
+            const prev = settings;
+            settings = transformSettings(nextRaw);
+            onSettingsChanged(prev, settings);
+        });
     }
 
-    function transformJSON(data) {
+    // Преобразует «плоский» объект настроек из нового API в тот же формат,
+    // что раньше возвращал transformJSON, чтобы не менять остальной код.
+    function transformSettings(raw) {
+        if (!raw || typeof raw !== 'object') return {};
         const result = {};
-        try {
-            data.sections.forEach(section => {
-                section.items.forEach(item => {
-                    if (item.type === "text" && item.buttons) {
-                        result[item.id] = {};
-                        item.buttons.forEach(button => {
-                            result[item.id][button.id] = {
-                                value: button.text,
-                                default: button.defaultParameter
-                            };
-                        });
-                    } else {
-                        result[item.id] = {
-                            value: item.bool ?? item.input ?? item.selected ?? item.value ?? item.filePath,
-                            default: item.defaultParameter
+
+        for (const [key, entry] of Object.entries(raw)) {
+            if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+                // Вложенный объект — текстовые поля (type: "text" / buttons)
+                const hasValue = 'value' in entry || 'default' in entry;
+                if (!hasValue) {
+                    // Это вложенная группа (fileNameFormat → { fileNamePattern: {...} })
+                    result[key] = {};
+                    for (const [subKey, subEntry] of Object.entries(entry)) {
+                        result[key][subKey] = {
+                            value: subEntry?.value ?? subEntry?.default ?? subEntry,
+                            default: subEntry?.default ?? subEntry?.value ?? subEntry,
                         };
                     }
-                });
-            });
-        } finally {
-            return result;
+                    continue;
+                }
+                result[key] = {
+                    value: entry.value ?? entry.default,
+                    default: entry.default ?? entry.value,
+                };
+            } else {
+                result[key] = { value: entry, default: entry };
+            }
+        }
+
+        return result;
+    }
+
+    // Реакция на изменение настроек
+    function onSettingsChanged(prev, next) {
+        const newPosition          = Number(next?.iconPosition?.value      ?? 1);
+        const newSize              = Number(next?.iconSize?.value           ?? 18);
+        const newOpacity           = Number(next?.iconOpacity?.value        ?? 70);
+        const newInlineEnabled     = next?.inlineEnabled?.value             !== false;
+        const newFullscreenEnabled = next?.fullscreenEnabled?.value         !== false;
+
+        const prevFullscreenEnabled = prev?.fullscreenEnabled?.value !== false;
+
+        if (prevFullscreenEnabled !== newFullscreenEnabled) {
+            if (!newFullscreenEnabled) {
+                removeButton();
+            } else {
+                lastTrackId = null;
+                addDownloadButton();
+            }
+        }
+
+        const visualChanged =
+            Number(prev?.iconPosition?.value ?? 1)  !== newPosition  ||
+            Number(prev?.iconSize?.value     ?? 18) !== newSize       ||
+            Number(prev?.iconOpacity?.value  ?? 70) !== newOpacity    ||
+            (prev?.inlineEnabled?.value !== false)  !== newInlineEnabled;
+
+        if (visualChanged) {
+            document.querySelectorAll('.cd-inline-icon').forEach(el => el.remove());
+            processAllMeta();
         }
     }
 
@@ -561,52 +612,11 @@
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // ─── Периодическая проверка ───────────────────────────────────────────────
+    // ─── Периодическая проверка (DOM-страховка) ──────────────────────────────
+    // Настройки теперь приходят через onChange — поллинг нужен только для
+    // проверки DOM (кнопки могут пропасть при навигации) и Win2k-темы.
 
-    let lastIconPosition = null;
-    let lastIconSize = null;
-    let lastIconOpacity = null;
-    let lastInlineEnabled = null;
-    let lastFullscreenEnabled = null;
-
-    setInterval(async () => {
-        const newSettings = await getSettings("CoverDownloader");
-        if (newSettings) {
-            const newPosition         = Number(newSettings?.iconPosition?.value ?? 1);
-            const newSize             = Number(newSettings?.iconSize?.value     ?? 18);
-            const newOpacity          = Number(newSettings?.iconOpacity?.value  ?? 70);
-            const newInlineEnabled    = newSettings?.inlineEnabled?.value !== false;
-            const newFullscreenEnabled = newSettings?.fullscreenEnabled?.value !== false;
-
-            const visualChanged =
-                (lastIconPosition      !== null && lastIconPosition      !== newPosition)         ||
-                (lastIconSize          !== null && lastIconSize          !== newSize)              ||
-                (lastIconOpacity       !== null && lastIconOpacity       !== newOpacity)           ||
-                (lastInlineEnabled     !== null && lastInlineEnabled     !== newInlineEnabled)     ||
-                lastIconPosition === null;
-
-            // Если полноэкранная кнопка была включена/выключена
-            if (lastFullscreenEnabled !== null && lastFullscreenEnabled !== newFullscreenEnabled) {
-                if (!newFullscreenEnabled) {
-                    removeButton();
-                } else {
-                    lastTrackId = null; // форсируем пересоздание
-                }
-            }
-
-            lastIconPosition       = newPosition;
-            lastIconSize           = newSize;
-            lastIconOpacity        = newOpacity;
-            lastInlineEnabled      = newInlineEnabled;
-            lastFullscreenEnabled  = newFullscreenEnabled;
-
-            settings = newSettings;
-
-            if (visualChanged) {
-                document.querySelectorAll('.cd-inline-icon').forEach(el => el.remove());
-                processAllMeta();
-            }
-        }
+    setInterval(() => {
         applyWin2kStyle(isWindows2000Active());
 
         // Страховка: добавляем иконки если их нет
@@ -617,23 +627,14 @@
             lastTrackId = null;
             addDownloadButton();
         }
-
-        // Автоскачивание
-        if (settings?.autoDownload?.value && modal) {
-            const trackId = getTrackId(modal);
-            if (trackId && trackId !== lastTrackId) {
-                currentCoverUrl = buildCoverUrl(getCoverImage(modal));
-                if (currentCoverUrl) await downloadCover();
-            }
-        }
     }, 1000);
 
-    // Первичная инициализация — сначала загружаем настройки, потом запускаем observer и создаём иконки
-    getSettings("CoverDownloader").then(s => {
-        if (s) settings = s;
-        inlineObserver.observe(document.body, { childList: true, subtree: true });
-        processAllMeta();
-    });
+    // ─── Инициализация ────────────────────────────────────────────────────────
+    // Инициализируем настройки через новое API, затем запускаем observer и иконки
+
+    initSettings("CoverDownloader");
+    inlineObserver.observe(document.body, { childList: true, subtree: true });
+    processAllMeta();
 
     console.log('[CoverDownloader] аддон загружен');
 })();

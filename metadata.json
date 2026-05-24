@@ -3,7 +3,7 @@
     "libraryLogo": "logo.svg",
     "author": "dobryjigrok",
     "description": "Скачивание обложек треков",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "css": "style.css",
     "type": "script",
     "script": "script.js",
@@ -17,5 +17,6 @@
     "banner": "banner.svg",
     "fromPext": true,
     "installSource": "local",
-    "id": "1018aecf67e2b479ae45bddb"
+    "id": "1018aecf67e2b479ae45bddb",
+    "storeAddonId": "3c4e5e35-3d29-4d0a-b9f4-12a358c15efb"
 }
