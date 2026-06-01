@@ -171,33 +171,61 @@
 
     // URL обложки из контейнера метаданных (для inline-кнопки)
     function getCoverUrlFromMeta(metaContainer) {
-        // Приоритет: полноэкранный плеер
-        const modal = document.querySelector('div[data-test-id="FULLSCREEN_PLAYER_MODAL"]');
         let img = null;
 
-        if (modal) {
-            img = modal.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
-                  modal.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
-        }
-
-        // Fallback: ищем обложку в playerbar рядом с метаданными
-        if (!img) {
-            const playerbar = metaContainer.closest('.PlayerBarDesktopWithBackgroundProgressBar_infoCard__i0cbW') ||
-                              metaContainer.closest('[data-test-id="PLAYERBAR_DESKTOP_COVER_CONTAINER"]')?.parentElement ||
-                              document.querySelector('[data-test-id="PLAYERBAR_DESKTOP_COVER_CONTAINER"]');
-            if (playerbar) {
-                img = playerbar.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
-                      playerbar.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
+        // 1. Проверяем: metaContainer находится внутри playerbar?
+        //    Ищем PLAYERBAR_DESKTOP_COVER_CONTAINER и смотрим, есть ли у него общий
+        //    предок с metaContainer на небольшой глубине (они соседи в одной панели).
+        const playerbarCover = document.querySelector('[data-test-id="PLAYERBAR_DESKTOP_COVER_CONTAINER"]');
+        if (playerbarCover) {
+            // Поднимаемся от playerbarCover вверх до 5 уровней и проверяем,
+            // содержит ли этот предок наш metaContainer
+            let ancestor = playerbarCover.parentElement;
+            let depth = 0;
+            while (ancestor && depth < 5) {
+                if (ancestor.contains(metaContainer)) {
+                    // metaContainer и playerbarCover — в одном блоке playerbar
+                    img = playerbarCover.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
+                          playerbarCover.querySelector('img[src*="avatars.yandex.net"], img[src*="avatars.mds.yandex.net"], img[src*="music.yandex"]');
+                    break;
+                }
+                ancestor = ancestor.parentElement;
+                depth++;
             }
         }
 
-        // Последний fallback: любая обложка на странице
+        // 2. Ищем обложку внутри строки трека — поднимаемся по DOM от metaContainer вверх.
+        //    Ограничиваем глубину подъёма (не выше 8 уровней) чтобы не захватить чужие обложки.
         if (!img) {
-            img = document.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
+            let node = metaContainer.parentElement;
+            let depth = 0;
+            while (node && node !== document.body && depth < 8) {
+                img = node.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
+                      node.querySelector('img[src*="avatars.yandex.net"], img[src*="avatars.mds.yandex.net"], img[src*="music.yandex"]');
+                if (img) break;
+                node = node.parentElement;
+                depth++;
+            }
+        }
+
+        // 3. Fallback: playerbar обложка (если metaContainer не в playerbar, но img всё ещё не найден)
+        if (!img && playerbarCover) {
+            img = playerbarCover.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
+                  playerbarCover.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
+        }
+
+        // 4. Последний fallback: полноэкранный плеер
+        if (!img) {
+            const modal = document.querySelector('div[data-test-id="FULLSCREEN_PLAYER_MODAL"]');
+            if (modal) {
+                img = modal.querySelector('img[data-test-id="ENTITY_COVER_IMAGE"]') ||
+                      modal.querySelector('img[src*="avatars.yandex.net"], img[src*="music.yandex"]');
+            }
         }
 
         if (!img?.src) return null;
 
+        // img.src известен даже если картинка ещё не отрисована — используем его напрямую
         let url = img.src;
         const quality = settings?.imageQuality?.value;
         let size = '1000x1000';
@@ -343,7 +371,7 @@
             padding: 4px; display: inline-flex; align-items: center;
             justify-content: center; opacity: ${opacity};
             transition: opacity 0.2s, color 0.2s; margin-left: 8px;
-            vertical-align: middle;
+            vertical-align: middle; position: relative; z-index: 1;
             color: var(--ym-controls-color-primary-text-enabled_variant, #ffffff);
         `;
 
@@ -454,7 +482,21 @@
     // ─── Скачивание (inline) ──────────────────────────────────────────────────
 
     async function downloadCoverFromMeta(metaContainer) {
-        const coverUrl = getCoverUrlFromMeta(metaContainer);
+        let coverUrl = getCoverUrlFromMeta(metaContainer);
+
+        // Страховка: если URL не найден сразу (img ещё не в DOM при первом рендере playerbar),
+        // ждём и пробуем ещё раз. Суммарно до ~500 мс.
+        // Примечание: await здесь безопасен — showSaveFilePicker вызывается внутри saveFile,
+        // уже после того как coverUrl получен, поэтому user gesture не теряется в PulseSync/Electron.
+        if (!coverUrl) {
+            await new Promise(r => setTimeout(r, 150));
+            coverUrl = getCoverUrlFromMeta(metaContainer);
+        }
+        if (!coverUrl) {
+            await new Promise(r => setTimeout(r, 350));
+            coverUrl = getCoverUrlFromMeta(metaContainer);
+        }
+
         if (!coverUrl) {
             showToast('Обложка не найдена', false);
             return;
