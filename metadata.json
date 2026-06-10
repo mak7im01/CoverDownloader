@@ -1,9 +1,9 @@
 {
     "name": "CoverDownloader",
-    "libraryLogo": "logo.svg",
+    "libraryLogo": "logo.png",
     "author": "dobryjigrok",
     "description": "Скачивание обложек треков",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "css": "style.css",
     "type": "script",
     "script": "script.js",
@@ -13,8 +13,8 @@
         "download",
         "utility"
     ],
-    "image": "logo.svg",
-    "banner": "banner.svg",
+    "image": "logo.png",
+    "banner": "banner.png",
     "fromPext": true,
     "installSource": "local",
     "id": "1018aecf67e2b479ae45bddb",
