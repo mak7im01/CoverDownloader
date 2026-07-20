@@ -3,7 +3,7 @@
     "libraryLogo": "logo.png",
     "author": "dobryjigrok",
     "description": "Скачивание обложек треков",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "css": "style.css",
     "type": "script",
     "script": "script.js",

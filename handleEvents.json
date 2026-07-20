@@ -79,8 +79,8 @@
                 },
                 {
                     "id": "iconPosition",
-                    "name": "Позиция иконки (при активном CopyTrackName)",
-                    "description": "С какой стороны от иконки копирования отображать кнопку скачивания",
+                    "name": "Позиция иконки",
+                    "description": "Где отображать кнопку скачивания относительно названия трека и иконки копирования",
                     "type": "selector",
                     "selected": 1,
                     "options": {
@@ -91,9 +91,25 @@
                         "2": {
                             "event": "positionBefore",
                             "name": "Слева от иконки копирования"
+                        },
+                        "3": {
+                            "event": "positionAfterTitle",
+                            "name": "Справа от названия трека"
+                        },
+                        "4": {
+                            "event": "positionBeforeTitle",
+                            "name": "Слева от названия трека"
                         }
                     },
                     "defaultParameter": 1
+                },
+                {
+                    "id": "positionBeforeTitleFullscreenOnly",
+                    "name": "Слева от названия — только в полноэкранном",
+                    "description": "Если включено, позиция «Слева от названия трека» применяется только в полноэкранном плеере. В навбаре кнопка будет справа от иконки копирования",
+                    "type": "button",
+                    "bool": true,
+                    "defaultParameter": true
                 },
                 {
                     "id": "iconSize",

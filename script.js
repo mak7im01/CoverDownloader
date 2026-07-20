@@ -96,7 +96,8 @@
             Number(prev?.iconPosition?.value ?? 1)  !== newPosition  ||
             Number(prev?.iconSize?.value     ?? 18) !== newSize       ||
             Number(prev?.iconOpacity?.value  ?? 70) !== newOpacity    ||
-            (prev?.inlineEnabled?.value !== false)  !== newInlineEnabled;
+            (prev?.inlineEnabled?.value !== false)  !== newInlineEnabled ||
+            (prev?.positionBeforeTitleFullscreenOnly?.value !== false) !== (next?.positionBeforeTitleFullscreenOnly?.value !== false);
 
         if (visualChanged) {
             document.querySelectorAll('.cd-inline-icon').forEach(el => el.remove());
@@ -354,9 +355,38 @@
 
     // ─── Inline-кнопка рядом с названием трека ────────────────────────────────
 
-    function createInlineIcon() {
+    // Проверяет, находится ли metaContainer в навбаре или полноэкранном плеере
+    function isInsidePlayerContext(metaContainer) {
+        const navbar = document.querySelector('.PlayerBarDesktopWithBackgroundProgressBar_player__ASKKs');
+        if (navbar && navbar.contains(metaContainer)) return true;
+        const fullscreen = document.querySelector('div[data-test-id="FULLSCREEN_PLAYER_MODAL"]');
+        if (fullscreen && fullscreen.contains(metaContainer)) return true;
+        return false;
+    }
+
+    // Читает computed color из span названия трека — для навбара и полноэкранного плеера
+    function getTitleColor(metaContainer) {
+        if (!isInsidePlayerContext(metaContainer)) return null;
+        const titleSpan = metaContainer?.querySelector(
+            '[data-test-id="TRACK_TITLE"] .Meta_title__GGBnH'
+        );
+        if (!titleSpan) return null;
+        const color = getComputedStyle(titleSpan).color;
+        return color && color !== 'rgba(0, 0, 0, 0)' ? color : null;
+    }
+
+    function createInlineIcon(metaContainer, position) {
         const size    = Number(settings?.iconSize?.value)    || 18;
         const opacity = (Number(settings?.iconOpacity?.value) || 70) / 100;
+
+        // Берём цвет из span названия трека; fallback — CSS-переменная темы
+        const titleColor = getTitleColor(metaContainer)
+            || 'var(--ym-controls-color-primary-text-enabled_variant, #ffffff)';
+
+        // При позиции «слева от названия» (4) отступ справа; иначе слева
+        const margin = position === 4
+            ? 'margin-right: 8px; margin-left: 0;'
+            : 'margin-left: 8px;';
 
         const btn = document.createElement('button');
         btn.className = 'cd-inline-icon';
@@ -370,9 +400,9 @@
             background: transparent; border: none; cursor: pointer;
             padding: 4px; display: inline-flex; align-items: center;
             justify-content: center; opacity: ${opacity};
-            transition: opacity 0.2s, color 0.2s; margin-left: 8px;
+            transition: opacity 0.2s, color 0.2s; ${margin}
             vertical-align: middle; position: relative; z-index: 1;
-            color: var(--ym-controls-color-primary-text-enabled_variant, #ffffff);
+            color: ${titleColor};
         `;
 
         btn.addEventListener('mouseenter', () => { btn.style.opacity = '1'; });
@@ -388,26 +418,50 @@
         const copyIcon = titleContainer.querySelector('.copy-track-icon');
         const existing = metaContainer.querySelector('.cd-inline-icon');
 
-        // Если иконка уже есть — проверяем не появился ли copyIcon после неё
-        if (existing) {
-            if (copyIcon) {
-                // copyIcon есть — проверяем правильность позиции
-                const position = Number(settings?.iconPosition?.value ?? 1);
-                const nodes = Array.from(titleContainer.childNodes);
-                const existingIdx = nodes.indexOf(existing);
-                const copyIdx = nodes.indexOf(copyIcon);
-                const positionCorrect = position === 2
-                    ? existingIdx < copyIdx   // слева: наша иконка должна быть перед copy
-                    : existingIdx > copyIdx;  // справа: наша иконка должна быть после copy
-                if (positionCorrect) return;
-                // Позиция неправильная — удаляем и пересоздаём
-                existing.remove();
-            } else {
-                return;
+        // Базовая позиция из настроек
+        let position = Number(settings?.iconPosition?.value ?? 1);
+
+        // Если выбрана позиция «слева от названия» (4) и включена опция «только в полноэкранном» —
+        // в навбаре откатываемся к позиции 1
+        if (position === 4 && settings?.positionBeforeTitleFullscreenOnly?.value !== false) {
+            const fullscreen = document.querySelector('div[data-test-id="FULLSCREEN_PLAYER_MODAL"]');
+            if (!fullscreen || !fullscreen.contains(metaContainer)) {
+                position = 1;
             }
         }
 
-        const btn = createInlineIcon();
+        // Находим элемент-якорь для позиции 3 и 4 — div/span с ссылкой на трек
+        const titleLinkWrapper = titleContainer.querySelector('[data-test-id="TRACK_TITLE"]')
+            ?.closest('div, span') || titleContainer.firstElementChild;
+
+        // Если иконка уже есть — проверяем корректность позиции
+        if (existing) {
+            const nodes = Array.from(titleContainer.childNodes);
+            const existingIdx = nodes.indexOf(existing);
+            let positionCorrect = false;
+
+            if (position === 3) {
+                // Справа от названия: иконка сразу после wrapper'а названия
+                const titleIdx = titleLinkWrapper ? nodes.indexOf(titleLinkWrapper) : -1;
+                positionCorrect = titleIdx !== -1 && existingIdx === titleIdx + 1;
+            } else if (position === 4) {
+                // Слева от названия: иконка должна быть самым первым элементом
+                positionCorrect = existingIdx === 0 ||
+                    (titleLinkWrapper && nodes.indexOf(titleLinkWrapper) > existingIdx);
+            } else if (copyIcon) {
+                const copyIdx = nodes.indexOf(copyIcon);
+                positionCorrect = position === 2
+                    ? existingIdx < copyIdx   // слева от copy
+                    : existingIdx > copyIdx;  // справа от copy
+            } else {
+                return; // copyIcon нет, текущая позиция 1 или 2 — оставляем как есть
+            }
+
+            if (positionCorrect) return;
+            existing.remove();
+        }
+
+        const btn = createInlineIcon(metaContainer, position);
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -425,8 +479,17 @@
             }
         });
 
-        if (copyIcon) {
-            const position = Number(settings?.iconPosition?.value ?? 1);
+        if (position === 3) {
+            // Справа от названия трека — вставляем сразу после wrapper'а с названием
+            if (titleLinkWrapper) {
+                titleLinkWrapper.insertAdjacentElement('afterend', btn);
+            } else {
+                titleContainer.appendChild(btn);
+            }
+        } else if (position === 4) {
+            // Слева от названия трека — вставляем перед первым дочерним элементом
+            titleContainer.insertBefore(btn, titleContainer.firstChild);
+        } else if (copyIcon) {
             if (position === 2) {
                 copyIcon.insertAdjacentElement('beforebegin', btn);
             } else {
@@ -635,7 +698,9 @@
     }
 
     // Observer для inline-иконок — запускается только после загрузки настроек
-    const inlineObserver = new MutationObserver(() => processAllMeta());
+    const inlineObserver = new MutationObserver(() => {
+        processAllMeta();
+    });
 
     // Observer для полноэкранной кнопки — с фильтрацией
     const observer = new MutationObserver((mutations) => {
